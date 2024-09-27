@@ -1,0 +1,26 @@
+{
+  "manifest_version": 2,
+  "name": "Nie Filler",
+  "version": "1.0",
+
+  "description": "Fills the nie appointment page.",
+
+  "icons": {
+    "48": "icons/contract.jpg"
+  },
+"permissions": [
+    "notifications",
+    "alarms"
+  ],
+  
+  "background": {
+    "scripts": ["background.js"],
+    "persistent": true
+  },
+  "content_scripts": [
+    {
+      "matches": ["*://icp.administracionelectronica.gob.es/*"],
+      "js": ["nie-filler.js"]
+    }
+  ]
+}
