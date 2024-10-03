@@ -5,9 +5,9 @@ var targetTabId = -1;
 var soundfile = "";
 // Listen for messages from content scripts
 browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    targetTabId = sender.tab.id;
     if (message.action === "setAlarm") {
         // Create an alarm to trigger once after the specified delay
-        targetTabId = sender.tab.id;
         soundfile = message.soundfile;
         // Create an alarm to trigger every minute (or any desired time)
         browser.alarms.create('alarmNotification', {
@@ -15,6 +15,10 @@ browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
         });
 
         sendResponse({ status: "Alarm set" });
+    }else if(message.action === "restartBrowser"){
+        
+        restartBrowser(message.url, message.incognito);
+        sendResponse({ status: "Browser restarted." });
     }
 });
 
@@ -28,6 +32,25 @@ browser.alarms.onAlarm.addListener(function (alarm) {
     }
 });
 
+
+function restartBrowser(url, incognito){
+    browser.tabs.get(targetTabId)
+        .then(tab => {
+            // Close the current window
+            return browser.windows.remove(tab.windowId);
+        })
+        .then(() => {
+            // Open a new incognito window with the specified URL
+            return browser.windows.create({
+                url: url,  // Replace with your desired URL
+                incognito: incognito               // Open in incognito mode
+            });
+        })
+        .catch(error => {
+            console.error("Error:", error);
+        });
+
+}
 
 // Function to show a notification with sound
 function ring(soundfile) {

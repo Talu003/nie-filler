@@ -1,8 +1,14 @@
 document.body.style.border = "15px solid green";
 
+// NTFY Config
+var ntfy_topic = "" // enter something unique here and use ntfy app to receive notifications when a cita was found
+
 // Delay Config
 var ACTION_DELAY_MS = 500;
-var RETRY_DELAY_MIN = 1;
+var RETRY_DELAY_MIN = 0.3;
+var RETRY_DELAY_SEC = 60 * RETRY_DELAY_MIN;
+var TOO_MANY_REQUESTS_RESTART_DELAY_MIN = 5;
+var TOO_MANY_REQUESTS_RESTART_DELAY_SEC = 60 * TOO_MANY_REQUESTS_RESTART_DELAY_MIN;
 
 // Doctype options
 var DOCTYPE = {
@@ -14,14 +20,15 @@ var DOCTYPE = {
 // User data
 var APPLICANT =
 {
-    name: "ENTER YOUR NAME",
+    name: "ADD YOUR NAME",
     city: "Barcelona",
     appointment_type: "POLICIA-CERTIFICADO DE REGISTRO DE CIUDADANO DE LA U.E.",
-    docType: DOCTYPE.PASSPORT,
-    docNumber: "AB69CD420",
-    phone: "9876542069",
-    email: "your.mail@wher.re",
+    docType: DOCTYPE.NIE,
+    docNumber: "AB420CD69",
+    phone: "987654321",
+    email: "your.mail@some.where",
 };
+
 
 // Website constants
 var PAGE_1_BASE_URL = "https://icp.administracionelectronica.gob.es/";
@@ -36,6 +43,7 @@ var PAGE_6_RESULT = "acCitar";
 var PAGE_7_VER_FORMULARIO = "acVerFormulario";
 var PAGE_8_OFERTA = "acOfertarCita";
 
+var restart_url = PAGE_1_BASE_URL + "icpplus/" + PAGE_1_INDEX;
 
 var RETRY_DELAY_SEC = 60 * RETRY_DELAY_MIN;
 
@@ -43,8 +51,13 @@ var RETRY_DELAY_SEC = 60 * RETRY_DELAY_MIN;
 // Website navigation
 if (window.location.href.startsWith(PAGE_1_BASE_URL)) {
     var body = document.body.innerText.toLowerCase();
-    if (body.indexOf("requested url was rejected") != -1 || body.indexOf("too many requests") != -1) {
-        request_rejected();
+
+    restartBrowser(6*60, text="Restart browser if still stuck in {0} seconds (to prevent getting stuck forever)...");
+    if(body.indexOf("too many requests") != -1){
+        restartBrowser(TOO_MANY_REQUESTS_RESTART_DELAY_SEC);
+    }
+    else if (body.indexOf("requested url was rejected") != -1) {
+        restartBrowser();
     }
     else if (body.indexOf("no hay citas") != -1 && window.location.href.indexOf(PAGE_2_CITAR) == -1) {
         retry(RETRY_DELAY_SEC);
@@ -71,8 +84,6 @@ if (window.location.href.startsWith(PAGE_1_BASE_URL)) {
         navigatePage7();
 
     } else if (window.location.href.indexOf(PAGE_8_OFERTA) != -1) {
-        ring_success();
-    } else {
         ring_success();
     }
 }
@@ -149,9 +160,7 @@ function navigatePage7() {
 }
 
 // Common Functions
-
-async function retry(delay) {
-    var text = "Restart in {0} seconds...";
+async function countdown(duration, text="Restart in {0} seconds..."){
     var id = 'countdown';
     var countdownElement = document.createElement("div");
     countdownElement.id = id;
@@ -165,13 +174,15 @@ async function retry(delay) {
     countdownElement.style.alignSelf = "center";
 
     document.body.prepend(countdownElement);
-    for (var i = delay; i > 0; i--) {
+    for (var i = duration; i > 0; i--) {
         console.log("Retry the process in " + i + " seconds...");
         countdownElement.innerHTML = text.replace("{0}", i);
         await sleep(1000);
     }
-    var url = PAGE_1_BASE_URL + "icpplus/" + PAGE_1_INDEX;
-    window.open(url, "_self");
+}
+async function retry(delay, text="Restart in {0} seconds...") {
+    await countdown(delay, text=text);
+    window.open(restart_url, "_self");
 }
 
 async function clickElement(id, delay = ACTION_DELAY_MS) {
@@ -194,6 +205,22 @@ function sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
 
+async function restartBrowser(delay=null, text="Restart browser in {0} seconds..."){
+    if(delay != null){
+        await countdown(delay, text=text);
+    }
+    console.log("Restarting the browser.");
+    browser.runtime.sendMessage({
+        action: "restartBrowser",
+        url: restart_url,
+        incognito: true
+    }).then(response => {
+        console.log(response.status);
+    }).catch(error => {
+        console.error("Error restarting the browser:", error);
+    });
+}
+
 function ring(sound) {
     console.log("Requesting the alarm to be set.");
     browser.runtime.sendMessage({
@@ -209,6 +236,15 @@ function ring(sound) {
 
 function ring_success() {
     ring("success.mp3");
+    if(ntfy_topic.length > 0){
+        fetch('http://ntfy.sh/'+ntfy_topic, {
+            method: 'POST', // Specify the request method
+            headers: {
+                'Content-Type': 'application/text' // Specify the content type
+            },
+            body: "I might have found an appointment!\nCheck your Browser!"
+        });
+    }
 }
 
 function ring_rejected() {
