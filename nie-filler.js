@@ -20,13 +20,13 @@ var DOCTYPE = {
 // User data
 var APPLICANT =
 {
-    name: "ADD YOUR NAME",
+    name: "Gianluca Fasolato",
     city: "Barcelona",
     appointment_type: "POLICIA-CERTIFICADO DE REGISTRO DE CIUDADANO DE LA U.E.",
     docType: DOCTYPE.NIE,
-    docNumber: "AB420CD69",
-    phone: "987654321",
-    email: "your.mail@some.where",
+    docNumber: "YC6075760",
+    phone: "3465120073",
+    email: "fasolato49@gmail.com",
 };
 
 
